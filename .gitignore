@@ -83,6 +83,7 @@ duckdb_benchmark_data/
 *.pdf
 *.swp
 a.out
+.antlr
 
 #==============================================================================#
 # Kate Swap Files
