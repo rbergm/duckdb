@@ -11,6 +11,8 @@
 
 #include <math.h>
 
+#include "hinting/planner_hints.hpp"
+
 namespace duckdb {
 
 // The filter was made on top of a logical sample or other projection,
@@ -377,6 +379,12 @@ DenomInfo CardinalityEstimator::GetDenominator(JoinRelationSet &set) {
 
 template <>
 double CardinalityEstimator::EstimateCardinalityWithSet(JoinRelationSet &new_set) {
+
+	auto planner_hints = tud::HintingContext::CurrentPlannerHints();
+	auto card_hint = planner_hints->GetCardinalityHint(new_set);
+	if (card_hint) {
+		return card_hint.value();
+	}
 
 	if (relation_set_2_cardinality.find(new_set.ToString()) != relation_set_2_cardinality.end()) {
 		return relation_set_2_cardinality[new_set.ToString()].cardinality_before_filters;

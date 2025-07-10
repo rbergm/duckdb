@@ -1,4 +1,7 @@
 
+#include <string>
+#include <unordered_set>
+
 #include "hinting/planner_hints.hpp"
 
 #include "antlr4-runtime.h"
@@ -43,7 +46,14 @@ public:
     }
 
     void enterCardinality_hint(HintBlockParser::Cardinality_hintContext *ctx) override {
-        // Handle cardinality hints
+        std::unordered_set<std::string> relations;
+        for (const auto &rel_ctx : ctx->relation_id()) {
+            relations.insert(rel_ctx->getText());
+        }
+
+        auto raw_card = ctx->INT()->getText();
+        double card = std::stod(raw_card);
+        planner_hints_.AddCardinalityHint(relations, card);
     }
 
 private:
@@ -51,7 +61,7 @@ private:
 };
 
 void PlannerHints::ParseHints() {
-    auto hintblock_start = raw_query_.find("/*=pg_lab=");
+    auto hintblock_start = raw_query_.find("/*=quack_lab=");
     auto hintblock_end = raw_query_.find("*/");
 
     if (hintblock_start == std::string::npos || hintblock_end == std::string::npos) {

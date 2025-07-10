@@ -8,6 +8,7 @@
 #include <unordered_set>
 
 #include "duckdb/common/typedefs.hpp"
+#include "duckdb/optimizer/join_order/join_relation.hpp"
 #include "duckdb/parser/tableref/basetableref.hpp"
 #include "duckdb/planner/logical_operator.hpp"
 
@@ -53,6 +54,10 @@ public:
 
     // === Cardinality hints ===
 
+    void AddCardinalityHint(const std::unordered_set<std::string>& rels, double card);
+
+    std::optional<double> GetCardinalityHint(const duckdb::JoinRelationSet &rels) const;
+
 private:
     std::string raw_query_;
 
@@ -61,6 +66,8 @@ private:
     std::unordered_map<std::string, duckdb::idx_t> relmap_;
 
     std::unordered_map<Intermediate, OperatorHint> operator_hints_;
+
+    std::unordered_map<Intermediate, double> cardinality_hints_;
 
 };
 
@@ -80,4 +87,4 @@ private:
 
 };
 
-};
+} // namespace tud

@@ -87,6 +87,29 @@ std::optional<OperatorHint> PlannerHints::GetOperatorHint(const duckdb::LogicalO
     return ophint->second;
 }
 
+void PlannerHints::AddCardinalityHint(const std::unordered_set<std::string>& rels, double card) {
+    auto relids = ResolveRelids(rels);
+    auto relset = Intermediate(relids);
+    cardinality_hints_[relset] = card;
+    contains_hint_ = true;
+}
+
+std::optional<double> PlannerHints::GetCardinalityHint(const duckdb::JoinRelationSet &rels) const {
+    std::unordered_set<duckdb::idx_t> relids(rels.count);
+    for (duckdb::idx_t i = 0; i < rels.count; ++i) {
+        relids.insert(rels.relations[i]);
+    }
+    auto intermediate = Intermediate(relids);
+
+    auto card_hint = cardinality_hints_.find(intermediate);
+    if (card_hint == cardinality_hints_.end()) {
+        return std::nullopt;
+    }
+    return card_hint->second;
+}
+
+
+
 //
 // === HintingContext Implementation ===
 //

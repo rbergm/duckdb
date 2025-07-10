@@ -103,7 +103,7 @@ cost
 
 // LEXER part
 
-HBLOCK_START : '/*=pg_lab=' ;
+HBLOCK_START : '/*=quack_lab=' ;
 HBLOCK_END   : '*/'         ;
 LPAREN       : '('          ;
 RPAREN       : ')'          ;
