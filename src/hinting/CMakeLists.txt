@@ -38,7 +38,9 @@ antlr_target(HintBlockGrammar HintBlock.g4 BOTH LISTENER package tud)
 add_library(
     planner_hinting
     OBJECT
+    intermediate.cpp
     planner_hints.cpp
+    hint_parser.cpp
     ${ANTLR_HintBlockGrammar_CXX_OUTPUTS})
 
 # target_link_libraries(planner_hinting PRIVATE antlr4_static)

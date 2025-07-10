@@ -15,6 +15,8 @@
 #include "parser/parser.hpp"
 #include "postgres_parser.hpp"
 
+#include "hinting/planner_hints.hpp"
+
 namespace duckdb {
 
 Parser::Parser(ParserOptions options_p) : options(options_p) {
@@ -201,6 +203,17 @@ void Parser::ParseQuery(const string &query) {
 			return;
 		}
 	}
+
+	//
+	// START hinting additions
+	//
+
+	tud::HintingContext::InitHints(query);
+
+	//
+	// END hinting additions
+	//
+
 	{
 		PostgresParser::SetPreserveIdentifierCase(options.preserve_identifier_case);
 		bool parsing_succeed = false;

@@ -4,6 +4,9 @@
 #include "duckdb/common/printer.hpp"
 #include "duckdb/common/vector.hpp"
 #include "duckdb/main/client_context.hpp"
+
+#include "hinting/planner_hints.hpp"
+
 namespace duckdb {
 
 BaseQueryResult::BaseQueryResult(QueryResultType type, StatementType statement_type, StatementProperties properties_p,
@@ -20,6 +23,8 @@ BaseQueryResult::BaseQueryResult(QueryResultType type, ErrorData error)
 }
 
 BaseQueryResult::~BaseQueryResult() {
+	// once we destroy the result we can be sure that execution has finished and we won't need the planner hints any more
+	tud::HintingContext::ResetHints();
 }
 
 void BaseQueryResult::ThrowError(const string &prepended_message) const {

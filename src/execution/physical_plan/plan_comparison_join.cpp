@@ -15,6 +15,8 @@
 #include "duckdb/planner/operator/logical_comparison_join.hpp"
 #include "duckdb/transaction/duck_transaction.hpp"
 
+#include "hinting/planner_hints.hpp"
+
 namespace duckdb {
 
 static void RewriteJoinCondition(unique_ptr<Expression> &root_expr, idx_t offset) {
@@ -36,6 +38,49 @@ PhysicalOperator &PhysicalPlanGenerator::PlanComparisonJoin(LogicalComparisonJoi
 		// no conditions: insert a cross product
 		return Make<PhysicalCrossProduct>(op.types, left, right, op.estimated_cardinality);
 	}
+
+	//
+	// START hinting additions
+	//
+
+	auto planner_hints = tud::HintingContext::CurrentPlannerHints();
+	auto join_hint = planner_hints->GetOperatorHint(op);
+	if (join_hint) {
+		switch (*join_hint) {
+		case tud::OperatorHint::NLJ: {
+			if (PhysicalNestedLoopJoin::IsSupported(op.conditions, op.join_type)) {
+				return Make<PhysicalNestedLoopJoin>(op, left, right, std::move(op.conditions), op.join_type,
+													op.estimated_cardinality, std::move(op.filter_pushdown));
+			}
+
+			for (auto &cond : op.conditions) {
+				RewriteJoinCondition(cond.right, left.types.size());
+			}
+			auto condition = JoinCondition::CreateExpression(std::move(op.conditions));
+			return Make<PhysicalBlockwiseNLJoin>(op, left, right, std::move(condition), op.join_type, op.estimated_cardinality);
+		}
+
+		case tud::OperatorHint::HASH_JOIN: {
+			auto &join = Make<PhysicalHashJoin>(op, left, right, std::move(op.conditions), op.join_type,
+												op.left_projection_map, op.right_projection_map, std::move(op.mark_types),
+												op.estimated_cardinality, std::move(op.filter_pushdown));
+			join.Cast<PhysicalHashJoin>().join_stats = std::move(op.join_stats);
+			return join;
+		}
+
+		case tud::OperatorHint::MERGE_JOIN: {
+			return Make<PhysicalPiecewiseMergeJoin>(op, left, right, std::move(op.conditions), op.join_type,
+													op.estimated_cardinality, std::move(op.filter_pushdown));
+		}
+		
+		default:
+			throw InternalException("Unknown join hint type");
+		}
+	}
+
+	//
+	// END hinting additions
+	//
 
 	idx_t has_range = 0;
 	bool has_equality = op.HasEquality(has_range);

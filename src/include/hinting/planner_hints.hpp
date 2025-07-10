@@ -1,11 +1,17 @@
+#pragma once
 
 #include <memory>
 #include <optional>
+#include <ranges>
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
 
-#include <duckdb/common/typedefs.hpp>
+#include "duckdb/common/typedefs.hpp"
+#include "duckdb/parser/tableref/basetableref.hpp"
+#include "duckdb/planner/logical_operator.hpp"
+
+#include "hinting/intermediate.hpp"
 
 namespace tud {
 
@@ -16,31 +22,62 @@ enum class OperatorHint {
     MERGE_JOIN,
 };
 
-typedef std::unordered_set<duckdb::idx_t> Intermediate;
+std::unordered_set<duckdb::idx_t> CollectOperatorRelids(const duckdb::LogicalOperator &op);
+
+class HintParser;
 
 class PlannerHints {
+    friend class HintParser;
+
 public:
 
-    void AddHint(const std::string &relname, OperatorHint hint);
+    explicit PlannerHints(const std::string query);
 
-    std::optional<OperatorHint> GetOperatorHint(const std::string &relname) const;
+    // Rule-of-zero: we only rely on STL types so we let the auto-generated functions take over.
 
-    std::optional<OperatorHint> GetOperatorHint(duckdb::idx_t relid) const;
+    // === Basic hint table management ===
+
+    void RegisterBaseTable(const duckdb::BaseTableRef &ref, duckdb::idx_t relid);
+
+    std::unordered_set<duckdb::idx_t> ResolveRelids(const std::unordered_set<std::string>& relnames) const;
+
+    void ParseHints();
+
+    // === Operator hints ===
+
+    void AddOperatorHint(const std::string &relname, OperatorHint hint);
+
+    void AddOperatorHint(const std::unordered_set<std::string>& rels, OperatorHint hint);
+
+    std::optional<OperatorHint> GetOperatorHint(const duckdb::LogicalOperator &op) const;
+
+    // === Cardinality hints ===
 
 private:
+    std::string raw_query_;
+
+    bool contains_hint_;
+
     std::unordered_map<std::string, duckdb::idx_t> relmap_;
 
     std::unordered_map<Intermediate, OperatorHint> operator_hints_;
 
-    Intermediate AsIntermediate(duckdb::idx_t relid) const;
-
-    template<typename C>
-    Intermediate AsIntermediate(const C& relids) const;
-
 };
 
-extern PlannerHints planner_hints;
+class HintingContext {
 
-extern void ParsePlannerHints(const std::string &query_string);
+public:
+
+    static PlannerHints* InitHints(const std::string &query);
+
+    static PlannerHints* CurrentPlannerHints();
+
+    static void ResetHints();
+
+private:
+
+    static std::unique_ptr<PlannerHints> planner_hints_;
+
+};
 
 };

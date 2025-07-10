@@ -21,6 +21,8 @@
 #include "duckdb/execution/expression_executor.hpp"
 #include "duckdb/parser/query_node/cte_node.hpp"
 
+#include "hinting/planner_hints.hpp"
+
 namespace duckdb {
 
 static bool TryLoadExtensionForReplacementScan(ClientContext &context, const string &table_name) {
@@ -312,6 +314,10 @@ unique_ptr<BoundTableRef> Binder::Bind(BaseTableRef &ref) {
 		} else {
 			bind_context.AddBaseTable(table_index, ref.alias, table_names, table_types, col_ids, *table_entry);
 		}
+
+		auto planner_hints = tud::HintingContext::CurrentPlannerHints();
+		planner_hints->RegisterBaseTable(ref, table_index);
+
 		return make_uniq_base<BoundTableRef, BoundBaseTableRef>(table, std::move(logical_get));
 	}
 	case CatalogType::VIEW_ENTRY: {
