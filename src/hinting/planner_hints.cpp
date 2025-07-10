@@ -108,6 +108,16 @@ std::optional<double> PlannerHints::GetCardinalityHint(const duckdb::JoinRelatio
     return card_hint->second;
 }
 
+std::optional<double> PlannerHints::GetCardinalityHint(const duckdb::LogicalGet &op) const {
+    auto relids = CollectOperatorRelids(static_cast<const duckdb::LogicalOperator&>(op));
+    auto intermediate = Intermediate(relids);
+
+    auto card_hint = cardinality_hints_.find(intermediate);
+    if (card_hint == cardinality_hints_.end()) {
+        return std::nullopt;
+    }
+    return card_hint->second;
+}
 
 
 //

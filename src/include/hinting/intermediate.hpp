@@ -23,7 +23,7 @@ struct std::hash<tud::Intermediate> {
     std::size_t operator()(const tud::Intermediate& intermediate) const {
         std::size_t seed = 0;
         for (auto& id : intermediate.relations) {
-            seed ^= std::hash<duckdb::idx_t>()(id) + 0x9e3779b9 + (seed << 6) + (seed >> 2);
+            seed ^= std::hash<duckdb::idx_t>()(id) + 0x9e3779b9;
         }
         return seed;
     }

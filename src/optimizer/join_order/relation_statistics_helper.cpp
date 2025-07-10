@@ -11,6 +11,8 @@
 
 #include <math.h>
 
+#include "hinting/planner_hints.hpp"
+
 namespace duckdb {
 
 static ExpressionBinding GetChildColumnBinding(Expression &expr) {
@@ -68,6 +70,25 @@ idx_t RelationStatisticsHelper::GetDistinctCount(LogicalGet &get, ClientContext 
 
 RelationStats RelationStatisticsHelper::ExtractGetStats(LogicalGet &get, ClientContext &context) {
 	auto return_stats = RelationStats();
+
+	//
+	// START cardinality hinting
+	//
+
+	auto planner_hints = tud::HintingContext::CurrentPlannerHints();
+	auto card_hint = planner_hints->GetCardinalityHint(get);
+	if (card_hint) {
+		// update rules are the same as vanilla implementation, see the end of this function.
+		return_stats.cardinality = LossyNumericCast<idx_t>(card_hint.value());
+		return_stats.stats_initialized = true;
+		get.estimated_cardinality = return_stats.cardinality;
+		get.has_estimated_cardinality = true;
+		return return_stats;
+	}
+
+	//
+	// END cardinality hinting
+	//
 
 	auto base_table_cardinality = get.EstimateCardinality(context);
 	auto cardinality_after_filters = base_table_cardinality;

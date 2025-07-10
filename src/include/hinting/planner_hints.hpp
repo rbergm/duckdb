@@ -11,6 +11,7 @@
 #include "duckdb/optimizer/join_order/join_relation.hpp"
 #include "duckdb/parser/tableref/basetableref.hpp"
 #include "duckdb/planner/logical_operator.hpp"
+#include "duckdb/planner/operator/logical_get.hpp"
 
 #include "hinting/intermediate.hpp"
 
@@ -57,6 +58,8 @@ public:
     void AddCardinalityHint(const std::unordered_set<std::string>& rels, double card);
 
     std::optional<double> GetCardinalityHint(const duckdb::JoinRelationSet &rels) const;
+
+    std::optional<double> GetCardinalityHint(const duckdb::LogicalGet &op) const;
 
 private:
     std::string raw_query_;
