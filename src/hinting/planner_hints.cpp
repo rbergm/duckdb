@@ -14,10 +14,12 @@
 namespace tud {
 
 void CollectOperatorRelidsInternal(const duckdb::LogicalOperator &op, std::unordered_set<duckdb::idx_t> &relids) {
-    for (const auto &relid : op.GetTableIndex()) {
-        relids.insert(relid);
+    if (op.type == duckdb::LogicalOperatorType::LOGICAL_GET) {
+        for (const auto &relid : op.GetTableIndex()) {
+            relids.insert(relid);
+        }
     }
-    
+
     for (const auto &child : op.children) {
         CollectOperatorRelidsInternal(*child, relids);
     }
@@ -92,9 +94,6 @@ std::optional<OperatorHint> PlannerHints::GetOperatorHint(const duckdb::LogicalO
 std::unique_ptr<PlannerHints> HintingContext::planner_hints_ = nullptr;
 
 PlannerHints* HintingContext::InitHints(const std::string &query) {
-    if (planner_hints_) {
-        throw std::runtime_error("Planner hints already initialized");
-    }
     planner_hints_ = std::make_unique<PlannerHints>(query);
     return planner_hints_.get();
 }

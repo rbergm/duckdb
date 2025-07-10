@@ -46,6 +46,7 @@ PhysicalOperator &PhysicalPlanGenerator::PlanComparisonJoin(LogicalComparisonJoi
 	auto planner_hints = tud::HintingContext::CurrentPlannerHints();
 	auto join_hint = planner_hints->GetOperatorHint(op);
 	if (join_hint) {
+		// implementation of the different join operators is copied from below. Make sure to keep these in sync!
 		switch (*join_hint) {
 		case tud::OperatorHint::NLJ: {
 			if (PhysicalNestedLoopJoin::IsSupported(op.conditions, op.join_type)) {
@@ -72,7 +73,7 @@ PhysicalOperator &PhysicalPlanGenerator::PlanComparisonJoin(LogicalComparisonJoi
 			return Make<PhysicalPiecewiseMergeJoin>(op, left, right, std::move(op.conditions), op.join_type,
 													op.estimated_cardinality, std::move(op.filter_pushdown));
 		}
-		
+
 		default:
 			throw InternalException("Unknown join hint type");
 		}
