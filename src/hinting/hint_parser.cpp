@@ -3,6 +3,7 @@
 #include <unordered_set>
 
 #include "hinting/planner_hints.hpp"
+#include "hinting/join_tree.hpp"
 
 #include "antlr4-runtime.h"
 #include "HintBlockLexer.h"
@@ -56,8 +57,39 @@ public:
         planner_hints_.AddCardinalityHint(relations, card);
     }
 
+    void enterJoin_order_hint(HintBlockParser::Join_order_hintContext *ctx) override {
+        auto joinorder = ParseJoinOrder(ctx->join_order_entry());
+        planner_hints_.AddJoinOrderHint(std::move(joinorder));
+    }
+
 private:
     PlannerHints &planner_hints_;
+
+    std::unique_ptr<JoinTree> ParseJoinOrder(HintBlockParser::Join_order_entryContext *ctx) {
+        auto base_join_order = ctx->base_join_order();
+        if (base_join_order) {
+            return ParseJoinOrderLeaf(base_join_order);
+        } else {
+            return ParseJoinOrderIntermediate(ctx->intermediate_join_order());
+        }
+    }
+
+    std::unique_ptr<JoinTree> ParseJoinOrderLeaf(HintBlockParser::Base_join_orderContext *ctx) {
+        auto relname = ctx->relation_id()->getText();
+        auto relid = planner_hints_.ResolveRelid(relname);
+        if (!relid) {
+            throw std::runtime_error("Table identifier not found");
+        }
+
+        return std::make_unique<JoinTree>(relid.value());
+    }
+
+    std::unique_ptr<JoinTree> ParseJoinOrderIntermediate(HintBlockParser::Intermediate_join_orderContext *ctx) {
+        auto outer_child = ParseJoinOrder(ctx->join_order_entry().front());
+        auto inner_child = ParseJoinOrder(ctx->join_order_entry().back());
+        return std::make_unique<JoinTree>(std::move(outer_child), std::move(inner_child));
+    }
+
 };
 
 void PlannerHints::ParseHints() {

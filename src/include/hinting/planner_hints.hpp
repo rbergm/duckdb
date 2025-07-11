@@ -39,13 +39,13 @@ std::unordered_set<duckdb::idx_t> CollectOperatorRelids(const duckdb::LogicalOpe
 class JoinOrderHinting {
 
 public:
-    JoinOrderHinting(duckdb::PlanEnumerator &plan_enumerator, duckdb::QueryGraphManager &graph_manager);
+    JoinOrderHinting(duckdb::PlanEnumerator &plan_enumerator);
 
-    duckdb::unique_ptr<duckdb::DPJoinNode> MakeJoinNode(const JoinTree &jointree);
+    duckdb::JoinRelationSet& MakeJoinNode(const JoinTree &jointree);
 
 private:
     duckdb::PlanEnumerator &plan_enumerator_;
-    duckdb::QueryGraphManager &graph_manager_;
+
 };
 
 
@@ -65,6 +65,8 @@ public:
     //
 
     void RegisterBaseTable(const duckdb::BaseTableRef &ref, duckdb::idx_t relid);
+
+    std::optional<duckdb::idx_t> ResolveRelid(const std::string& relname) const;
 
     std::unordered_set<duckdb::idx_t> ResolveRelids(const std::unordered_set<std::string>& relnames) const;
 

@@ -61,29 +61,22 @@ unique_ptr<LogicalOperator> JoinOrderOptimizer::Optimize(unique_ptr<LogicalOpera
 		auto joinorder_hint = planner_hints->GetJoinOrderHint();
 		if (joinorder_hint) {
 			auto plans = reference_map_t<JoinRelationSet, unique_ptr<DPJoinNode>>(1);
-			auto join_hinter = tud::JoinOrderHinting(plan_enumerator, query_graph_manager);
-			auto join_node = join_hinter.MakeJoinNode(*joinorder_hint.value());
-			auto &rels = join_node->set;
-
-			// We only need to care about the final DPJoinNode b/c currently that is all that the query graph manager accesses
-			// anyways. We might need to make sure that we keep this in sync with the DuckDB folks
-
-			plans[rels] = std::move(join_node);
-			query_graph_manager.plans = &plans;
+			auto join_hinting = tud::JoinOrderHinting(plan_enumerator);
+			join_hinting.MakeJoinNode(*joinorder_hint.value());
 		} else {
 			// Invoke the vanilla join order optimizer
 
 			// Initialize the leaf/single node plans
 			plan_enumerator.InitLeafPlans();
 			plan_enumerator.SolveJoinOrder();
-
-			// now reconstruct a logical plan from the query graph plan
-			query_graph_manager.plans = &plan_enumerator.GetPlans();
 		}
 
 		//
 		// END join order hinting
 		//
+
+		// now reconstruct a logical plan from the query graph plan
+		query_graph_manager.plans = &plan_enumerator.GetPlans();
 
 		new_logical_plan = query_graph_manager.Reconstruct(std::move(plan));
 	} else {

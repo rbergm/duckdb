@@ -22,30 +22,37 @@ std::unordered_set<duckdb::idx_t> CollectOperatorRelids(const duckdb::LogicalOpe
 }
 
 
-JoinOrderHinting::JoinOrderHinting(duckdb::PlanEnumerator &plan_enumerator,
-                                   duckdb::QueryGraphManager &graph_manager)
-    : plan_enumerator_(plan_enumerator), graph_manager_(graph_manager) {}
+JoinOrderHinting::JoinOrderHinting(duckdb::PlanEnumerator &plan_enumerator)
+    : plan_enumerator_(plan_enumerator) {}
 
 
-duckdb::unique_ptr<duckdb::DPJoinNode> JoinOrderHinting::MakeJoinNode(const JoinTree &jointree) {
+duckdb::JoinRelationSet& JoinOrderHinting::MakeJoinNode(const JoinTree &jointree) {
+    auto &graph_manager_ = plan_enumerator_.query_graph_manager;
     auto &set_manager = graph_manager_.set_manager;
 
     if (jointree.IsLeaf()) {
         auto &relset = set_manager.GetJoinRelation(jointree.relid);
-        return duckdb::make_uniq<duckdb::DPJoinNode>(relset);
+        auto node = duckdb::make_uniq<duckdb::DPJoinNode>(relset);
+
+        plan_enumerator_.plans[relset] = std::move(node);
+        return relset;
     }
 
-    auto left_node = MakeJoinNode(*jointree.left);
-    auto right_node = MakeJoinNode(*jointree.right);
+    auto &left_rels = MakeJoinNode(*jointree.left);
+    auto &right_rels = MakeJoinNode(*jointree.right);
 
     auto &query_graph = graph_manager_.GetQueryGraphEdges();
-    auto &connections = query_graph.GetConnections(left_node->set, right_node->set);
+    auto &connections = query_graph.GetConnections(left_rels, right_rels);
     D_ASSERT(!connections.empty());
 
-    auto &relset = set_manager.Union(left_node->set, right_node->set);
+    auto &join_rels = set_manager.Union(left_rels, right_rels);
+    auto left_plan = plan_enumerator_.plans.find(left_rels);
+    auto right_plan = plan_enumerator_.plans.find(right_rels);
 
-    return plan_enumerator_.CreateJoinTree(
-        relset, connections, *left_node, *right_node);
+    auto joinnode = plan_enumerator_.CreateJoinTree(join_rels, connections, *left_plan->second, *right_plan->second);
+    plan_enumerator_.plans[join_rels] = std::move(joinnode);
+
+    return join_rels;
 }
 
 PlannerHints::PlannerHints(const std::string query) : raw_query_{query}, contains_hint_{false} {
@@ -60,6 +67,14 @@ void PlannerHints::RegisterBaseTable(const duckdb::BaseTableRef &ref, duckdb::id
     if (!ref.alias.empty()) {
         relmap_[ref.alias] = relid;
     }
+}
+
+std::optional<duckdb::idx_t> PlannerHints::ResolveRelid(const std::string& relname) const {
+    auto relid = relmap_.find(relname);
+    if (relid == relmap_.end()) {
+        return std::nullopt;
+    }
+    return relid->second;
 }
 
 std::unordered_set<duckdb::idx_t> PlannerHints::ResolveRelids(const std::unordered_set<std::string>& relnames) const {
