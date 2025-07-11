@@ -22,11 +22,19 @@
 
 #include <functional>
 
+#include "hinting/planner_hints.hpp"
+
+namespace tud {
+	class JoinOrderHinting;
+}
+
 namespace duckdb {
 
 class QueryGraphManager;
 
 class PlanEnumerator {
+friend class tud::JoinOrderHinting;
+
 public:
 	explicit PlanEnumerator(QueryGraphManager &query_graph_manager, CostModel &cost_model,
 	                        const QueryGraphEdges &query_graph)

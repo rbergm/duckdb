@@ -1,13 +1,3 @@
-#include "antlr4-runtime.h"
-#include "HintBlockLexer.h"
-#include "HintBlockParser.h"
-#include "HintBlockBaseListener.h"
-
-// Undefine ANTLR's INVALID_INDEX macro to avoid conflict with DuckDB's DConstants::INVALID_INDEX
-#ifdef INVALID_INDEX
-#undef INVALID_INDEX
-#endif
-
 #include "hinting/intermediate.hpp"
 #include "hinting/planner_hints.hpp"
 
@@ -31,9 +21,37 @@ std::unordered_set<duckdb::idx_t> CollectOperatorRelids(const duckdb::LogicalOpe
     return relids;
 }
 
+
+JoinOrderHinting::JoinOrderHinting(duckdb::PlanEnumerator &plan_enumerator,
+                                   duckdb::QueryGraphManager &graph_manager)
+    : plan_enumerator_(plan_enumerator), graph_manager_(graph_manager) {}
+
+
+duckdb::unique_ptr<duckdb::DPJoinNode> JoinOrderHinting::MakeJoinNode(const JoinTree &jointree) {
+    auto &set_manager = graph_manager_.set_manager;
+
+    if (jointree.IsLeaf()) {
+        auto &relset = set_manager.GetJoinRelation(jointree.relid);
+        return duckdb::make_uniq<duckdb::DPJoinNode>(relset);
+    }
+
+    auto left_node = MakeJoinNode(*jointree.left);
+    auto right_node = MakeJoinNode(*jointree.right);
+
+    auto &query_graph = graph_manager_.GetQueryGraphEdges();
+    auto &connections = query_graph.GetConnections(left_node->set, right_node->set);
+    D_ASSERT(!connections.empty());
+
+    auto &relset = set_manager.Union(left_node->set, right_node->set);
+
+    return plan_enumerator_.CreateJoinTree(
+        relset, connections, *left_node, *right_node);
+}
+
 PlannerHints::PlannerHints(const std::string query) : raw_query_{query}, contains_hint_{false} {
     relmap_ = std::unordered_map<std::string, duckdb::idx_t>();
     operator_hints_ = std::unordered_map<Intermediate, OperatorHint>();
+    join_order_hint_ = nullptr;
 }
 
 void PlannerHints::RegisterBaseTable(const duckdb::BaseTableRef &ref, duckdb::idx_t relid) {
@@ -119,6 +137,18 @@ std::optional<double> PlannerHints::GetCardinalityHint(const duckdb::LogicalGet 
     return card_hint->second;
 }
 
+
+void PlannerHints::AddJoinOrderHint(std::unique_ptr<JoinTree> join_tree) {
+    join_order_hint_ = std::move(join_tree);
+    contains_hint_ = true;
+}
+
+std::optional<JoinTree*> PlannerHints::GetJoinOrderHint() const {
+    if (!join_order_hint_) {
+        return std::nullopt;
+    }
+    return join_order_hint_.get();
+}
 
 //
 // === HintingContext Implementation ===

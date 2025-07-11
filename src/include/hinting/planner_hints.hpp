@@ -6,17 +6,24 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
-#include <utility>s
+#include <utility>
 
 #include "duckdb/common/typedefs.hpp"
 #include "duckdb/optimizer/join_order/join_node.hpp"
 #include "duckdb/optimizer/join_order/join_relation.hpp"
+#include "duckdb/optimizer/join_order/plan_enumerator.hpp"
+#include "duckdb/optimizer/join_order/query_graph_manager.hpp"
 #include "duckdb/parser/tableref/basetableref.hpp"
 #include "duckdb/planner/logical_operator.hpp"
 #include "duckdb/planner/operator/logical_get.hpp"
 
 #include "hinting/intermediate.hpp"
 #include "hinting/join_tree.hpp"
+
+namespace duckdb {
+    class PlanEnumerator;
+    class QueryGraphManager;
+}
 
 namespace tud {
 
@@ -29,7 +36,18 @@ enum class OperatorHint {
 
 std::unordered_set<duckdb::idx_t> CollectOperatorRelids(const duckdb::LogicalOperator &op);
 
-std::unique_ptr<duckdb::DPJoinNode> MakeJoinNode(const JoinTree &jointree, const duckdb::JoinRelationSetManager &set_manager);
+class JoinOrderHinting {
+
+public:
+    JoinOrderHinting(duckdb::PlanEnumerator &plan_enumerator, duckdb::QueryGraphManager &graph_manager);
+
+    duckdb::unique_ptr<duckdb::DPJoinNode> MakeJoinNode(const JoinTree &jointree);
+
+private:
+    duckdb::PlanEnumerator &plan_enumerator_;
+    duckdb::QueryGraphManager &graph_manager_;
+};
+
 
 class HintParser;
 

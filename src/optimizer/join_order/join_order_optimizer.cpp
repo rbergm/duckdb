@@ -61,13 +61,14 @@ unique_ptr<LogicalOperator> JoinOrderOptimizer::Optimize(unique_ptr<LogicalOpera
 		auto joinorder_hint = planner_hints->GetJoinOrderHint();
 		if (joinorder_hint) {
 			auto plans = reference_map_t<JoinRelationSet, unique_ptr<DPJoinNode>>(1);
-			auto join_node = tud::MakeJoinNode(*joinorder_hint.value(), query_graph_manager.set_manager);
+			auto join_hinter = tud::JoinOrderHinting(plan_enumerator, query_graph_manager);
+			auto join_node = join_hinter.MakeJoinNode(*joinorder_hint.value());
 			auto &rels = join_node->set;
 
 			// We only need to care about the final DPJoinNode b/c currently that is all that the query graph manager accesses
 			// anyways. We might need to make sure that we keep this in sync with the DuckDB folks
 
-			plans.emplace(rels, std::move(join_node));
+			plans[rels] = std::move(join_node);
 			query_graph_manager.plans = &plans;
 		} else {
 			// Invoke the vanilla join order optimizer
