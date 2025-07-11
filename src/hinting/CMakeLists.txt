@@ -40,6 +40,7 @@ add_library(
     OBJECT
     intermediate.cpp
     planner_hints.cpp
+    join_tree.cpp
     hint_parser.cpp
     ${ANTLR_HintBlockGrammar_CXX_OUTPUTS})
 

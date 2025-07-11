@@ -6,14 +6,17 @@
 #include <string>
 #include <unordered_map>
 #include <unordered_set>
+#include <utility>s
 
 #include "duckdb/common/typedefs.hpp"
+#include "duckdb/optimizer/join_order/join_node.hpp"
 #include "duckdb/optimizer/join_order/join_relation.hpp"
 #include "duckdb/parser/tableref/basetableref.hpp"
 #include "duckdb/planner/logical_operator.hpp"
 #include "duckdb/planner/operator/logical_get.hpp"
 
 #include "hinting/intermediate.hpp"
+#include "hinting/join_tree.hpp"
 
 namespace tud {
 
@@ -26,6 +29,8 @@ enum class OperatorHint {
 
 std::unordered_set<duckdb::idx_t> CollectOperatorRelids(const duckdb::LogicalOperator &op);
 
+std::unique_ptr<duckdb::DPJoinNode> MakeJoinNode(const JoinTree &jointree, const duckdb::JoinRelationSetManager &set_manager);
+
 class HintParser;
 
 class PlannerHints {
@@ -37,7 +42,9 @@ public:
 
     // Rule-of-zero: we only rely on STL types so we let the auto-generated functions take over.
 
+    //
     // === Basic hint table management ===
+    //
 
     void RegisterBaseTable(const duckdb::BaseTableRef &ref, duckdb::idx_t relid);
 
@@ -45,7 +52,9 @@ public:
 
     void ParseHints();
 
+    //
     // === Operator hints ===
+    //
 
     void AddOperatorHint(const std::string &relname, OperatorHint hint);
 
@@ -53,13 +62,23 @@ public:
 
     std::optional<OperatorHint> GetOperatorHint(const duckdb::LogicalOperator &op) const;
 
+    //
     // === Cardinality hints ===
+    //
 
     void AddCardinalityHint(const std::unordered_set<std::string>& rels, double card);
 
     std::optional<double> GetCardinalityHint(const duckdb::JoinRelationSet &rels) const;
 
     std::optional<double> GetCardinalityHint(const duckdb::LogicalGet &op) const;
+
+    //
+    // === Join order hints ===
+    //
+
+    void AddJoinOrderHint(std::unique_ptr<JoinTree> join_tree);
+
+    std::optional<JoinTree*> GetJoinOrderHint() const;
 
 private:
     std::string raw_query_;
@@ -71,6 +90,8 @@ private:
     std::unordered_map<Intermediate, OperatorHint> operator_hints_;
 
     std::unordered_map<Intermediate, double> cardinality_hints_;
+
+    std::unique_ptr<JoinTree> join_order_hint_;
 
 };
 
