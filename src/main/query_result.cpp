@@ -1,3 +1,5 @@
+#include <iostream>
+
 #include "duckdb/main/query_result.hpp"
 
 #include "duckdb/common/box_renderer.hpp"
@@ -23,8 +25,17 @@ BaseQueryResult::BaseQueryResult(QueryResultType type, ErrorData error)
 }
 
 BaseQueryResult::~BaseQueryResult() {
+
+	//
+	// START hinting context cleanup
+	//
+
 	// once we destroy the result we can be sure that execution has finished and we won't need the planner hints any more
-	tud::HintingContext::ResetHints();
+	// tud::HintingContext::ResetHints();
+
+	//
+	// END hinting context cleanup
+	//
 }
 
 void BaseQueryResult::ThrowError(const string &prepended_message) const {

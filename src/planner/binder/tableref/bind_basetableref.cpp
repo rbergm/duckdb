@@ -315,8 +315,16 @@ unique_ptr<BoundTableRef> Binder::Bind(BaseTableRef &ref) {
 			bind_context.AddBaseTable(table_index, ref.alias, table_names, table_types, col_ids, *table_entry);
 		}
 
+		//
+		// START hinting relmap creation
+		//
+
 		auto planner_hints = tud::HintingContext::CurrentPlannerHints();
 		planner_hints->RegisterBaseTable(ref, table_index);
+
+		//
+		// END hinting relmap creation
+		//
 
 		return make_uniq_base<BoundTableRef, BoundBaseTableRef>(table, std::move(logical_get));
 	}
