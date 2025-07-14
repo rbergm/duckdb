@@ -3,6 +3,10 @@
 
 namespace tud {
 
+//
+// === Global functions ===
+//
+
 void CollectOperatorRelidsInternal(const duckdb::LogicalOperator &op, std::unordered_set<duckdb::idx_t> &relids) {
     if (op.type == duckdb::LogicalOperatorType::LOGICAL_GET) {
         for (const auto &relid : op.GetTableIndex()) {
@@ -21,6 +25,10 @@ std::unordered_set<duckdb::idx_t> CollectOperatorRelids(const duckdb::LogicalOpe
     return relids;
 }
 
+
+//
+// === JoinOrderHinting Implementation ===
+//
 
 JoinOrderHinting::JoinOrderHinting(duckdb::PlanEnumerator &plan_enumerator)
     : plan_enumerator_(plan_enumerator) {}
@@ -55,10 +63,15 @@ duckdb::JoinRelationSet& JoinOrderHinting::MakeJoinNode(const JoinTree &jointree
     return join_rels;
 }
 
+//
+// === PlannerHints Implementation ===
+//
+
 PlannerHints::PlannerHints(const std::string query) : raw_query_{query}, contains_hint_{false} {
     relmap_ = std::unordered_map<std::string, duckdb::idx_t>();
     operator_hints_ = std::unordered_map<Intermediate, OperatorHint>();
     join_order_hint_ = nullptr;
+    global_operator_hints_ = {false, true, true, true}; // Default to enabled for all global operator hints, disable UNKNOWN
 }
 
 void PlannerHints::RegisterBaseTable(const duckdb::BaseTableRef &ref, duckdb::idx_t relid) {
@@ -163,6 +176,17 @@ std::optional<JoinTree*> PlannerHints::GetJoinOrderHint() const {
         return std::nullopt;
     }
     return join_order_hint_.get();
+}
+
+void PlannerHints::AddGlobalOperatorHint(OperatorHint op, bool enabled) {
+    auto index = static_cast<size_t>(op);
+    global_operator_hints_[index] = enabled;
+    contains_hint_ = true;
+}
+
+bool PlannerHints::GetOperatorEnabled(OperatorHint op) const {
+    auto index = static_cast<size_t>(op);
+    return global_operator_hints_[index];
 }
 
 //

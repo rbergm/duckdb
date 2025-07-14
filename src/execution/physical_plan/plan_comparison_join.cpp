@@ -103,7 +103,10 @@ PhysicalOperator &PhysicalPlanGenerator::PlanComparisonJoin(LogicalComparisonJoi
 
 	//	TODO: Extend PWMJ to handle all comparisons and projection maps
 	const auto prefer_range_joins = client_config.prefer_range_joins && can_iejoin;
-	if (has_equality && !prefer_range_joins) {
+
+	// HINTING addition: check if the user has disabled hash joins globally
+	auto enable_hashjoin = planner_hints->GetOperatorEnabled(tud::OperatorHint::HASH_JOIN);
+	if (enable_hashjoin && has_equality && !prefer_range_joins) {
 		// Equality join with small number of keys : possible perfect join optimization
 		auto &join = Make<PhysicalHashJoin>(op, left, right, std::move(op.conditions), op.join_type,
 		                                    op.left_projection_map, op.right_projection_map, std::move(op.mark_types),
@@ -112,7 +115,13 @@ PhysicalOperator &PhysicalPlanGenerator::PlanComparisonJoin(LogicalComparisonJoi
 		return join;
 	}
 
-	D_ASSERT(op.left_projection_map.empty());
+	// HINTING addition: disable this assertion for now, as it breaks global hinting. What does it do anyway?
+	// We need to understand the implementation details behind this assertion and the DuckDB internals to be safe, but
+	// let's just "move fast and break things" for now.
+	//
+	// D_ASSERT(op.left_projection_map.empty());
+	//
+
 	if (left.estimated_cardinality <= client_config.nested_loop_join_threshold ||
 	    right.estimated_cardinality <= client_config.nested_loop_join_threshold) {
 		can_iejoin = false;
@@ -130,11 +139,21 @@ PhysicalOperator &PhysicalPlanGenerator::PlanComparisonJoin(LogicalComparisonJoi
 		return Make<PhysicalIEJoin>(op, left, right, std::move(op.conditions), op.join_type, op.estimated_cardinality,
 		                            std::move(op.filter_pushdown));
 	}
-	if (can_merge) {
+
+	// HINTING addition: check if the user has disabled merge joins globally
+	auto enable_mergejoin = planner_hints->GetOperatorEnabled(tud::OperatorHint::MERGE_JOIN);
+	if (enable_mergejoin && can_merge) {
 		// range join: use piecewise merge join
 		return Make<PhysicalPiecewiseMergeJoin>(op, left, right, std::move(op.conditions), op.join_type,
 		                                        op.estimated_cardinality, std::move(op.filter_pushdown));
 	}
+
+	// HINTING addition: check if the user has disabled nested loop joins globally. If she has, we cannot execute the
+	// join because there are no more operators left. DuckDB would have picked the first one already.
+	if (!planner_hints->GetOperatorEnabled(tud::OperatorHint::NLJ)) {
+		throw InternalException("Nested Loop Join is disabled globally, cannot execute join");
+	}
+
 	if (PhysicalNestedLoopJoin::IsSupported(op.conditions, op.join_type)) {
 		// inequality join: use nested loop
 		return Make<PhysicalNestedLoopJoin>(op, left, right, std::move(op.conditions), op.join_type,

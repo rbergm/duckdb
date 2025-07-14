@@ -62,6 +62,32 @@ public:
         planner_hints_.AddJoinOrderHint(std::move(joinorder));
     }
 
+    void enterGuc_hint(HintBlockParser::Guc_hintContext *ctx) override {
+        OperatorHint op;
+        auto raw_hint = ctx->guc_name()->getText();
+        if (raw_hint == "enable_nestloop") {
+            op = OperatorHint::NLJ;
+        } else if (raw_hint == "enable_hashjoin") {
+            op = OperatorHint::HASH_JOIN;
+        } else if (raw_hint == "enable_mergejoin") {
+            op = OperatorHint::MERGE_JOIN;
+        } else {
+            throw std::runtime_error("Unknown SET parameter: " + raw_hint);
+        }
+
+        auto raw_value = ctx->guc_value()->getText();
+        bool enabled;
+        if (raw_value == "on" || raw_value == "true") {
+            enabled = true;
+        } else if (raw_value == "off" || raw_value == "false") {
+            enabled = false;
+        } else {
+            throw std::runtime_error("Invalid SET value: " + raw_value);
+        }
+
+        planner_hints_.AddGlobalOperatorHint(op, enabled);
+    }
+
 private:
     PlannerHints &planner_hints_;
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <array>
 #include <memory>
 #include <optional>
 #include <ranges>
@@ -28,10 +29,10 @@ namespace duckdb {
 namespace tud {
 
 enum class OperatorHint {
-    UNKNOWN,
-    NLJ,
-    HASH_JOIN,
-    MERGE_JOIN,
+    UNKNOWN = 0,
+    NLJ = 1,
+    HASH_JOIN = 2,
+    MERGE_JOIN = 3,
 };
 
 std::unordered_set<duckdb::idx_t> CollectOperatorRelids(const duckdb::LogicalOperator &op);
@@ -100,6 +101,14 @@ public:
 
     std::optional<JoinTree*> GetJoinOrderHint() const;
 
+    //
+    // === Global hints ===
+    //
+
+    void AddGlobalOperatorHint(OperatorHint hint, bool enabled);
+
+    bool GetOperatorEnabled(OperatorHint hint) const;
+
 private:
     std::string raw_query_;
 
@@ -112,6 +121,8 @@ private:
     std::unordered_map<Intermediate, double> cardinality_hints_;
 
     std::unique_ptr<JoinTree> join_order_hint_;
+
+    std::array<bool, 4> global_operator_hints_; // UNKNOWN, NLJ, HASH_JOIN, MERGE_JOIN
 
 };
 
